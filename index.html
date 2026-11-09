@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fortnite Chest Counter</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d1a; --panel: rgba(20, 24, 48, 0.85); --blue: #1fa2ff; --violet: #8a2be2;
+    --gold: #ffcc33; --text: #e8ecff; --muted: #8b93b8; --danger: #ff4d6d; --ok: #3ddc84;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Rajdhani', sans-serif; color: var(--text); min-height: 100vh;
+    background: radial-gradient(circle at 20% 10%, rgba(31,162,255,.18), transparent 40%),
+                radial-gradient(circle at 80% 90%, rgba(138,43,226,.22), transparent 45%), var(--bg);
+    overflow-x: hidden;
+  }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; opacity:.08;
+    background-image: linear-gradient(var(--blue) 1px, transparent 1px), linear-gradient(90deg, var(--violet) 1px, transparent 1px);
+    background-size: 60px 60px; animation: grid 20s linear infinite;
+  }
+  @keyframes grid { to { background-position: 60px 60px; } }
+
+  header { text-align:center; padding: 28px 16px 10px; }
+  h1 {
+    font-family: 'Bangers', cursive; font-size: clamp(42px, 7vw, 84px); letter-spacing: 3px;
+    background: linear-gradient(90deg, var(--blue), var(--violet), var(--gold));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 18px rgba(31,162,255,.45)); transform: skewX(-6deg);
+  }
+  .status { margin-top: 6px; font-weight:700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .status .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background: var(--muted); margin-right:8px; vertical-align: middle; }
+  .status.live .dot { background: var(--ok); box-shadow: 0 0 12px var(--ok); animation: pulse 1.2s infinite; }
+  .status.paused .dot { background: var(--gold); }
+  @keyframes pulse { 50% { opacity:.4; } }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; grid-template-columns: 1.3fr 1fr; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel); border: 1px solid rgba(31,162,255,.25); border-radius: 18px; padding: 20px;
+    backdrop-filter: blur(10px); box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(138,43,226,.15);
+  }
+  .panel h2 { font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: var(--blue); margin-bottom: 14px; }
+
+  .counter { text-align:center; padding: 26px 10px; position: relative; }
+  .counter .big {
+    font-family: 'Bangers', cursive; font-size: clamp(120px, 20vw, 220px); line-height: .9;
+    color: #fff; text-shadow: 0 0 30px rgba(255,204,51,.5), 0 6px 0 var(--violet), 0 10px 25px rgba(0,0,0,.6);
+    transition: transform .15s;
+  }
+  .counter .big.pop { animation: pop .6s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { 0% { transform: scale(1); } 30% { transform: scale(1.25) rotate(-3deg); color: var(--gold); } 100% { transform: scale(1); } }
+  .counter .label { font-size: 20px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); }
+  .burst { position:absolute; left:50%; top:45%; pointer-events:none; }
+  .burst span {
+    position:absolute; width:10px; height:10px; border-radius:50%; background: var(--gold);
+    animation: fly .8s ease-out forwards;
+  }
+  @keyframes fly { to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
+
+  .sub-stats { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+  .stat { background: rgba(0,0,0,.3); border-radius: 12px; padding: 12px; text-align:center; border: 1px solid rgba(255,255,255,.06); }
+  .stat .v { font-family:'Bangers', cursive; font-size: 40px; color: var(--blue); }
+  .stat .k { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .stat.gold .v { color: var(--gold); }
+  .stat.violet .v { color: #c77dff; }
+
+  .controls { display:flex; flex-wrap: wrap; gap: 10px; justify-content:center; margin-top: 16px; }
+  button {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 13px 22px; border: none; border-radius: 10px; cursor: pointer; color: #fff; position: relative;
+    transform: skewX(-8deg); transition: transform .1s, filter .15s, box-shadow .15s;
+    box-shadow: 0 5px 0 rgba(0,0,0,.4);
+  }
+  button > span { display:inline-block; transform: skewX(8deg); }
+  button:hover { filter: brightness(1.15); transform: skewX(-8deg) translateY(-2px); }
+  button:active { transform: skewX(-8deg) translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .b-start { background: linear-gradient(135deg, #22c55e, #0ea5e9); }
+  .b-pause { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+  .b-reset { background: linear-gradient(135deg, #475569, #1e293b); }
+  .b-plus  { background: linear-gradient(135deg, var(--blue), var(--violet)); }
+  .b-minus { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+  .hint { text-align:center; color: var(--muted); font-size: 13px; margin-top: 10px; }
+  kbd { background: rgba(255,255,255,.1); padding: 2px 6px; border-radius: 4px; font-family: inherit; border:1px solid rgba(255,255,255,.2); }
+
+  .preview { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16/9; border: 1px solid rgba(31,162,255,.3); }
+  .preview video, .preview canvas { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; }
+  .preview .placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color: var(--muted); text-align:center; padding: 20px; font-size: 15px; }
+  .row { display:flex; align-items:center; justify-content: space-between; gap: 10px; margin: 10px 0; font-size: 14px; }
+  input[type=range] { flex: 1; accent-color: var(--blue); }
+  .toggle { display:flex; align-items:center; gap: 8px; cursor:pointer; }
+  .det-info { font-size: 13px; color: var(--muted); display:flex; justify-content: space-between; margin-top: 6px; }
+
+  .history { max-height: 260px; overflow-y: auto; display:flex; flex-direction: column; gap: 6px; }
+  .history::-webkit-scrollbar { width: 6px; } .history::-webkit-scrollbar-thumb { background: var(--violet); border-radius: 3px; }
+  .h-item { display:flex; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,.3); border-radius: 8px; border-left: 3px solid var(--blue); font-size: 14px; animation: slideIn .3s; }
+  .h-item.manual { border-left-color: var(--violet); }
+  .h-item.removed { border-left-color: var(--danger); opacity:.7; }
+  @keyframes slideIn { from { opacity:0; transform: translateX(-10px);} }
+  .games { margin-top: 12px; }
+  .game { display:flex; justify-content: space-between; padding: 6px 12px; font-size: 14px; color: var(--muted); border-bottom: 1px dashed rgba(255,255,255,.08); }
+  .game b { color: var(--gold); }
+  .record-badge { display:inline-block; background: linear-gradient(90deg, var(--gold), #ff9900); color: #000; font-weight:700; font-size: 12px; padding: 2px 8px; border-radius: 6px; margin-left: 8px; animation: pop .6s; }
+  .ethics { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Fortnite Chest Counter</h1>
+  <div id="status" class="status"><span class="dot"></span>En attente</div>
+</header>
+
+<main>
+  <section>
+    <div class="panel">
+      <div class="counter">
+        <div id="burst" class="burst"></div>
+        <div id="count" class="big">0</div>
+        <div class="label">Coffres détectés</div>
+      </div>
+      <div class="sub-stats">
+        <div class="stat gold"><div id="opened" class="v">0</div><div class="k">Ouverts (estim.)</div></div>
+        <div class="stat"><div id="cpm" class="v">0.0</div><div class="k">Coffres / min</div></div>
+        <div class="stat violet"><div id="timer" class="v">00:00</div><div class="k">Durée partie</div></div>
+      </div>
+      <div class="controls">
+        <button id="btnStart" class="b-start"><span>▶ Start</span></button>
+        <button id="btnPause" class="b-pause" disabled><span>❚❚ Pause</span></button>
+        <button id="btnReset" class="b-reset"><span>↺ Reset</span></button>
+        <button id="btnPlus" class="b-plus"><span>+1 Coffre</span></button>
+        <button id="btnMinus" class="b-minus"><span>−1 Coffre</span></button>
+      </div>
+      <div class="hint">Raccourcis (fenêtre active) : <kbd>+</kbd> ajouter · <kbd>−</kbd> retirer · <kbd>Espace</kbd> start/pause · <kbd>R</kbd> reset</div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>🏆 Record & parties précédentes</h2>
+      <div class="stat gold" style="text-align:left; display:flex; align-items:center; gap:16px">
+        <div class="v" id="record">0</div>
+        <div><div class="k">Meilleur record personnel</div><div id="recordDate" style="font-size:13px;color:var(--muted)">—</div></div>
+      </div>
+      <div id="games" class="games"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <h2>🎥 Capture & détection</h2>
+      <div class="preview">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="placeholder" class="placeholder">Cliquez sur <b>&nbsp;Start&nbsp;</b> puis choisissez la fenêtre Fortnite<br>(mode Fenêtré ou Plein écran fenêtré requis)</div>
+      </div>
+      <div class="row">
+        <label class="toggle"><input type="checkbox" id="autoDetect" checked> Détection automatique</label>
+        <label class="toggle"><input type="checkbox" id="showDebug" checked> Afficher les zones</label>
+      </div>
+      <div class="row"><span>Sensibilité</span><input type="range" id="sens" min="1" max="10" value="5"><b id="sensV">5</b></div>
+      <div class="row"><span>Taille min. (px)</span><input type="range" id="minSize" min="4" max="80" value="18"><b id="minSizeV">18</b></div>
+      <div class="det-info"><span id="fps">0 img/s</span><span id="blobs">0 zones dorées</span><span id="tracked">0 suivis</span></div>
+      <div class="ethics">
+        ℹ️ L'application analyse uniquement les pixels de votre écran via l'API de capture du navigateur, comme OBS.
+        Aucune lecture mémoire, aucune injection, aucun fichier du jeu modifié : compatible avec l'anti-cheat.
+        Elle ne fournit aucune information que vous ne voyez pas déjà à l'écran.
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>📜 Historique de la partie</h2>
+      <div id="history" class="history"><div class="hint">Aucun coffre pour l'instant.</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const els = {
+  count: $('count'), opened: $('opened'), cpm: $('cpm'), timer: $('timer'), status: $('status'),
+  record: $('record'), recordDate: $('recordDate'), games: $('games'), history: $('history'),
+  video: $('video'), overlay: $('overlay'), placeholder: $('placeholder'),
+  fps: $('fps'), blobs: $('blobs'), tracked: $('tracked'), burst: $('burst')
+};
+
+const state = {
+  running: false, paused: false, stream: null, startTime: null, elapsedBefore: 0,
+  count: 0, opened: 0, history: [],
+  tracks: [], nextTrackId: 1, lastDetectionTime: 0, recentlyCounted: [],
+};
+const store = {
+  get record() { return JSON.parse(localStorage.getItem('fcc_record') || '{"value":0,"date":null}'); },
+  set record(v) { localStorage.setItem('fcc_record', JSON.stringify(v)); },
+  get games() { return JSON.parse(localStorage.getItem('fcc_games') || '[]'); },
+  set games(v) { localStorage.setItem('fcc_games', JSON.stringify(v.slice(0, 10))); },
+};
+
+const ANALYSIS_W = 320;
+const FRAME_INTERVAL = 120;
+const CONFIRM_FRAMES = 3;
+const TRACK_TIMEOUT = 1500;
+const MATCH_DIST = 45;
+const RECOUNT_COOLDOWN = 20000;
+const GLOBAL_COOLDOWN = 700;
+
+const work = document.createElement('canvas');
+const wctx = work.getContext('2d', { willReadFrequently: true });
+const octx = els.overlay.getContext('2d');
+
+function isGold(r, g, b, sens) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (max < 150 + (10 - sens) * 8) return false;
+  if (d < 70 + (10 - sens) * 6) return false;
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return h >= 35 && h <= 62;
+}
+
+function findBlobs(mask, w, h, minSize) {
+  const labels = new Int32Array(w * h); const blobs = []; let next = 1;
+  const stack = [];
+  for (let i = 0; i < w * h; i++) {
+    if (!mask[i] || labels[i]) continue;
+    let minX = w, minY = h, maxX = 0, maxY = 0, n = 0, sx = 0, sy = 0;
+    stack.push(i); labels[i] = next;
+    while (stack.length) {
+      const p = stack.pop(); const x = p % w, y = (p / w) | 0;
+      n++; sx += x; sy += y;
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      const nb = [p - 1, p + 1, p - w, p + w];
+      for (const q of nb) {
+        if (q < 0 || q >= w * h) continue;
+        if (Math.abs((q % w) - x) > 1) continue;
+        if (mask[q] && !labels[q]) { labels[q] = next; stack.push(q); }
+      }
+    }
+    next++;
+    const bw = maxX - minX + 1, bh = maxY - minY + 1;
+    const fill = n / (bw * bh);
+    if (n >= minSize && bw / bh < 3 && bh / bw < 3 && fill > 0.25) {
+      blobs.push({ x: sx / n, y: sy / n, size: n, w: bw, h: bh, minX, minY });
+    }
+  }
+  return blobs;
+}
+
+function updateTracks(blobs, now) {
+  const used = new Set();
+  for (const b of blobs) {
+    let best = null, bestD = MATCH_DIST;
+    for (const t of state.tracks) {
+      if (used.has(t.id)) continue;
+      const d = Math.hypot(t.x - b.x, t.y - b.y);
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    if (best) {
+      best.x = best.x * 0.6 + b.x * 0.4; best.y = best.y * 0.6 + b.y * 0.4;
+      best.size = b.size; best.maxSize = Math.max(best.maxSize, b.size);
+      best.frames++; best.lastSeen = now; best.box = b; used.add(best.id);
+    } else {
+      state.tracks.push({ id: state.nextTrackId++, x: b.x, y: b.y, size: b.size, maxSize: b.size,
+        frames: 1, counted: false, lastSeen: now, box: b, opened: false });
+    }
+  }
+  for (const t of state.tracks) {
+    if (!t.counted && t.frames >= CONFIRM_FRAMES) {
+      const recently = state.recentlyCounted.some(r => now - r.time < RECOUNT_COOLDOWN && Math.hypot(r.x - t.x, r.y - t.y) < MATCH_DIST * 1.5);
+      if (!recently && now - state.lastDetectionTime > GLOBAL_COOLDOWN) {
+        t.counted = true; state.lastDetectionTime = now;
+        state.recentlyCounted.push({ x: t.x, y: t.y, time: now });
+        addChest('auto');
+      } else t.counted = true;
+    }
+  }
+  state.tracks = state.tracks.filter(t => {
+    if (now - t.lastSeen > TRACK_TIMEOUT) {
+      if (t.counted && t.maxSize > (+$('minSize').value) * 4 && t.frames > 8) {
+        state.opened++; els.opened.textContent = state.opened;
+      }
+      return false;
+    }
+    return true;
+  });
+  state.recentlyCounted = state.recentlyCounted.filter(r => now - r.time < RECOUNT_COOLDOWN);
+}
+
+let lastFrame = 0, fpsCount = 0, fpsTime = performance.now();
+function loop(ts) {
+  if (!state.running) return;
+  requestAnimationFrame(loop);
+  if (state.paused || !$('autoDetect').checked || els.video.readyState < 2) return;
+  if (ts - lastFrame < FRAME_INTERVAL) return;
+  lastFrame = ts;
+
+  const vw = els.video.videoWidth, vh = els.video.videoHeight; if (!vw) return;
+  const w = ANALYSIS_W, h = Math.round(vh * (w / vw));
+  if (work.width !== w) { work.width = w; work.height = h; }
+  wctx.drawImage(els.video, 0, 0, w, h);
+  const { data } = wctx.getImageData(0, 0, w, h);
+  const sens = +$('sens').value, mask = new Uint8Array(w * h);
+  const yMin = Math.floor(h * 0.08), yMax = Math.floor(h * 0.88);
+  for (let y = yMin; y < yMax; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (isGold(data[i], data[i + 1], data[i + 2], sens)) mask[y * w + x] = 1;
+  }
+  const blobs = findBlobs(mask, w, h, +$('minSize').value);
+  updateTracks(blobs, performance.now());
+  drawOverlay(blobs, w, h);
+
+  fpsCount++; if (performance.now() - fpsTime > 1000) { els.fps.textContent = fpsCount + ' img/s'; fpsCount = 0; fpsTime = performance.now(); }
+  els.blobs.textContent = blobs.length + ' zones dorées'; els.tracked.textContent = state.tracks.length + ' suivis';
+}
+
+function drawOverlay(blobs, w, h) {
+  const cv = els.overlay; if (cv.width !== w) { cv.width = w; cv.height = h; }
+  octx.clearRect(0, 0, w, h);
+  if (!$('showDebug').checked) return;
+  for (const t of state.tracks) {
+    const b = t.box; octx.lineWidth = 2;
+    octx.strokeStyle = t.counted ? '#3ddc84' : '#ffcc33';
+    octx.strokeRect(b.minX - 3, b.minY - 3, b.w + 6, b.h + 6);
+    octx.fillStyle = octx.strokeStyle; octx.font = 'bold 11px Rajdhani';
+    octx.fillText(t.counted ? '✓ coffre' : '… ' + t.frames + '/' + CONFIRM_FRAMES, b.minX - 3, b.minY - 6);
+  }
+}
+
+function addChest(source) {
+  state.count++; render(); animateCount();
+  pushHistory(source === 'auto' ? '🎯 Coffre détecté' : '✋ Ajout manuel', source);
+  checkRecord();
+}
+function removeChest() {
+  if (state.count <= 0) return;
+  state.count--; render(); pushHistory('↩ Coffre retiré', 'removed');
+}
+function pushHistory(label, type) {
+  const t = elapsed();
+  state.history.unshift({ label, type, time: fmt(t), total: state.count });
+  if (state.history.length === 1) els.history.innerHTML = '';
+  const div = document.createElement('div'); div.className = 'h-item ' + type;
+  div.innerHTML = `<span>${label}</span><span>#${state.count} · ${fmt(t)}</span>`;
+  els.history.prepend(div);
+}
+function animateCount() {
+  els.count.classList.remove('pop'); void els.count.offsetWidth; els.count.classList.add('pop');
+  els.burst.innerHTML = '';
+  for (let i = 0; i < 14; i++) {
+    const s = document.createElement('span'); const a = (i / 14) * Math.PI * 2, r = 90 + Math.random() * 60;
+    s.style.setProperty('--dx', Math.cos(a) * r + 'px'); s.style.setProperty('--dy', Math.sin(a) * r + 'px');
+    s.style.background = i % 2 ? 'var(--gold)' : (i % 3 ? 'var(--blue)' : 'var(--violet)');
+    els.burst.appendChild(s);
+  }
+  try { beep(); } catch (e) {}
+}
+let audioCtx;
+function beep() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(880, audioCtx.currentTime); o.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + .12);
+  g.gain.setValueAtTime(.15, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .25);
+  o.connect(g).connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + .25);
+}
+
+function elapsed() { return state.elapsedBefore + (state.startTime && !state.paused ? Date.now() - state.startTime : 0); }
+function fmt(ms) { const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+function render() {
+  els.count.textContent = state.count;
+  const min = elapsed() / 60000;
+  els.cpm.textContent = min > 0.05 ? (state.count / min).toFixed(1) : '0.0';
+  els.timer.textContent = fmt(elapsed());
+}
+setInterval(() => { if (state.running && !state.paused) render(); }, 500);
+
+function checkRecord() {
+  const r = store.record;
+  if (state.count > r.value) {
+    store.record = { value: state.count, date: new Date().toLocaleString('fr-FR') };
+    renderRecord(true);
+  }
+}
+function renderRecord(isNew) {
+  const r = store.record; els.record.textContent = r.value; els.recordDate.textContent = r.date || '—';
+  if (isNew) { const b = document.createElement('span'); b.className = 'record-badge'; b.textContent = 'NOUVEAU RECORD !'; els.recordDate.appendChild(b); }
+  const games = store.games;
+  els.games.innerHTML = games.length ? games.map(g => `<div class="game"><span>${g.date}</span><span><b>${g.count}</b> coffres · ${g.duration} · ${g.cpm}/min</span></div>`).join('') : '<div class="game">Aucune partie enregistrée.</div>';
+}
+function saveGame() {
+  if (state.count === 0 && elapsed() < 10000) return;
+  const g = store.games; const min = elapsed() / 60000;
+  g.unshift({ date: new Date().toLocaleString('fr-FR'), count: state.count, duration: fmt(elapsed()), cpm: min > 0 ? (state.count / min).toFixed(1) : '0.0' });
+  store.games = g;
+}
+
+function setStatus(cls, text) { els.status.className = 'status ' + cls; els.status.innerHTML = '<span class="dot"></span>' + text; }
+
+async function start() {
+  if (state.running && state.paused) {
+    state.paused = false; state.startTime = Date.now(); setStatus('live', 'Comptage en cours'); return;
+  }
+  if (state.running) return;
+  try {
+    if ($('autoDetect').checked) {
+      state.stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, cursor: 'never' }, audio: false });
+      els.video.srcObject = state.stream; els.placeholder.style.display = 'none';
+      state.stream.getVideoTracks()[0].addEventListener('ended', () => { pause(); setStatus('paused', 'Capture arrêtée — Pause'); });
+    }
+  } catch (e) {
+    alert("Capture refusée ou indisponible. Le compteur fonctionnera en mode manuel (+ / −).");
+    $('autoDetect').checked = false;
+  }
+  state.running = true; state.paused = false; state.startTime = Date.now();
+  $('btnStart').disabled = false; $('btnPause').disabled = false; $('btnStart').querySelector('span').textContent = '▶ Reprendre';
+  setStatus('live', $('autoDetect').checked ? 'Comptage automatique en cours' : 'Mode manuel en cours');
+  requestAnimationFrame(loop);
+}
+function pause() {
+  if (!state.running || state.paused) return;
+  state.elapsedBefore = elapsed(); state.paused = true; state.startTime = null;
+  setStatus('paused', 'En pause'); render();
+}
+function reset() {
+  if (state.count > 0 && !confirm('Réinitialiser la partie ? Elle sera sauvegardée dans l\'historique.')) return;
+  saveGame();
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  Object.assign(state, { running: false, paused: false, stream: null, startTime: null, elapsedBefore: 0, count: 0, opened: 0, history: [], tracks: [], recentlyCounted: [], lastDetectionTime: 0 });
+  els.video.srcObject = null; els.placeholder.style.display = 'flex'; octx.clearRect(0, 0, els.overlay.width, els.overlay.height);
+  els.history.innerHTML = '<div class="hint">Aucun coffre pour l\'instant.</div>'; els.opened.textContent = '0';
+  $('btnPause').disabled = true; $('btnStart').querySelector('span').textContent = '▶ Start';
+  setStatus('', 'En attente'); render(); renderRecord(false);
+}
+
+$('btnStart').onclick = start; $('btnPause').onclick = pause; $('btnReset').onclick = reset;
+$('btnPlus').onclick = () => { if (!state.running) start(); addChest('manual'); };
+$('btnMinus').onclick = removeChest;
+$('sens').oninput = e => $('sensV').textContent = e.target.value;
+$('minSize').oninput = e => $('minSizeV').textContent = e.target.value;
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.code === 'NumpadAdd') { e.preventDefault(); $('btnPlus').click(); }
+  else if (e.key === '-' || e.code === 'NumpadSubtract') { e.preventDefault(); removeChest(); }
+  else if (e.code === 'Space') { e.preventDefault(); state.running && !state.paused ? pause() : start(); }
+  else if (e.key.toLowerCase() === 'r') reset();
+});
+
+window.addEventListener('beforeunload', () => { if (state.count > 0) saveGame(); });
+renderRecord(false); render();
+</script>
+</body>
+</html>
